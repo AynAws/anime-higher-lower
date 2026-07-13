@@ -18,13 +18,10 @@ window.app = Vue.createApp({
         async rateLimitedFetch(url) {
             const now = Date.now()
             const diff = now - this.lastRequestTime
-
             const minDelay = 3000
-
             if (diff < minDelay) {
-                await new Promise(r => setTimeout(r, minDelay, - diff))
+                await new Promise(r => setTimeout(r, minDelay - diff)) // fixed: subtract diff
             }
-
             this.lastRequestTime = Date.now()
             return fetch(url)
         },
@@ -49,20 +46,32 @@ window.app = Vue.createApp({
         async getRandomAnime() {
             try {
                 const res = await this.rateLimitedFetch('https://api.jikan.moe/v4/random/anime')
+                if (!res.ok) {
+                    console.warn(`Jikan API returned ${res.status}, will retry`)
+                    return null
+                }
                 const json = await res.json()
-                return json.data
+                return json.data ?? null
             }
             catch(err) {
                 console.error("Jikan API error: ", err)
+                return null
             }
         },
+        
         async getRandomAnimeFiltered(maxRetries = 15) {
-            for (let i=0; i < maxRetries; i++) {
+            for (let i = 0; i < maxRetries; i++) {
                 const anime = await this.getRandomAnime()
+                if (!anime) continue // skip failed/timed-out fetches instead of crashing
                 console.log(`Fetched ${anime.title_english || anime.title}`)
-                if (anime && anime.scored_by >= 10000 && anime.score != null) return anime
+                if (anime.scored_by >= 10000 && anime.score != null) return anime
             }
-            return await this.getRandomAnime()
+            // keep retrying instead of potentially returning undefined
+            let anime = null
+            while (!anime) {
+                anime = await this.getRandomAnime()
+            }
+            return anime
         },
         async getTwoAnime() {
             this.loading = true
