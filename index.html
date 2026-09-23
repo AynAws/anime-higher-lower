@@ -33,21 +33,21 @@
         <div id="app">
             <div>High Score: {{ highScore }}<br>Streak: {{ streak }}</div>
             <div v-if="!loading" class="cards-container">
-                <div v-for="(anime, index) in animePair" :key="anime.mal_id">
+                <div v-for="(anime, index) in animePair" :key="anime.id">
                     <div class="card">
                         <div class="card-body">
                             <div class="card-title">
-                                <a :href="anime.url" target="_blank">{{ anime.title_english || anime.title }}</a>
+                                <a :href="anime.siteUrl" target="_blank">{{ anime.title.english || anime.title.romaji }}</a>
                             </div>
                             <div class="card-subtitle">
                                 <button v-if="!hint" @click="getHint(anime)">Hint (Score)</button>
-                                <div v-else>{{ anime.score }}</div>
+                                <div v-else>{{ anime.averageScore }}</div>
                             </div>
                             <br> <!--Breaks Title and Image-->
-                            <img :src="anime.images.jpg.large_image_url || anime.images.jpg.image_url" alt="Random anime's poster" class="img-fluid">
+                            <img :src="anime.coverImage.large" alt="Random anime's poster" class="img-fluid">
                         </div>
                         <button v-if="!guessed" @click="guessOverUnder(anime, animePair[index === 0 ? 1 : 0])">Guess</button>
-                        <div v-else style="text-align:center;">{{anime.members}} members</div>
+                        <div v-else style="text-align:center;">{{ anime.popularity }} popularity</div>
                     </div>
                 </div>
             </div>

@@ -8,7 +8,10 @@ window.app = Vue.createApp({
             hint: false,
             guessed: false,
             animePool: [], // Pre-fetched list of mainstream anime
-            lastRequestTime: 0,
+            usedIds: new Set(),
+            poolCursor: 1,
+            maxPage: 20,
+            roundsSinceRefresh: 0
         }
     },
     mounted() {
@@ -17,40 +20,66 @@ window.app = Vue.createApp({
     },
     methods: {
         async initializeAnimePool() {
-            // Fetch popular, non-adult anime once (cached for 24h by AniList)
             const query = `
-                query {
-                    Page(page: 1, perPage: 50) {
+                query ($page: Int) {
+                    Page(page: $page, perPage: 50) {
                         media(
                             type: ANIME
                             sort: POPULARITY_DESC
                             isAdult: false
                             status: FINISHED
-                            averageScore_greater: 60
+                            popularity_greater: 100000
                         ) {
                             id
-                            malId
                             title { english romaji }
                             episodes
                             averageScore
                             popularity
+                            siteUrl
+                            coverImage { large }
                         }
                     }
                 }
             `
             try {
-                const res = await fetch('https://graphql.anilist.co', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query })
+                const pagesToFetch = this.sampleUniquePages(3,5)
+                const results = await Promise.all(pagesToFetch.map(page =>
+                    fetch('https://graphql.anilist.co', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ query, variables: { page } })
+                    })
+                    .then(res => res.json())
+                    .then(json => {
+                        if (json.errors) {
+                            console.error(`Anilist error on page ${page}:`, json.errors)
+                            return []
+                        }
+                        return json.data.Page.media
+                    })
+                ))
+
+                const seen = new Set()
+                this.animePool = results.flat().filter(a => {
+                    if (seen.has(a.id)) return false
+                    seen.add(a.id)
+                    return true
                 })
-                const { data } = await res.json()
-                this.animePool = data.Page.media
-                console.log(`Loaded ${this.animePool.length} anime into pool`)
+                console.log(`Loaded ${this.animePool.length} anime into pool from pages: {$pagesToFetch.join(', )}`)
             } catch(err) {
                 console.error("Failed to load anime pool:", err)
-                // Fallback: could retry or use a smaller set
+                this.animePool = []
             }
+        },
+        sampleUniquePages(count, max) {
+            const pages = new Set()
+            while (pages.size < Math.min(count, max)) {
+                pages.add(1 + Math.floor(Math.random() * max))
+            }
+            return [...pages]
         },
         pickRandomFromPool() {
             return this.animePool[Math.floor(Math.random() * this.animePool.length)]
