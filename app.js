@@ -42,7 +42,7 @@ window.app = Vue.createApp({
                 }
             `
             try {
-                const pagesToFetch = this.sampleUniquePages(3,5)
+                const pagesToFetch = this.sampleUniquePages(25,5)
                 const results = await Promise.all(pagesToFetch.map(page =>
                     fetch('https://graphql.anilist.co', {
                         method: 'POST',
@@ -68,7 +68,7 @@ window.app = Vue.createApp({
                     seen.add(a.id)
                     return true
                 })
-                console.log(`Loaded ${this.animePool.length} anime into pool from pages: {$pagesToFetch.join(', )}`)
+                console.log(`Loaded ${this.animePool.length} anime into pool from pages: ${pagesToFetch.join(', ')}`)
             } catch(err) {
                 console.error("Failed to load anime pool:", err)
                 this.animePool = []
@@ -105,10 +105,18 @@ window.app = Vue.createApp({
             this.loading = true
             let first = this.pickRandomFromPool()
             let second = this.pickRandomFromPool()
+
+            const minPopDiff = 50000
+            let attempts = 0;
+            const maxAttempts = 5
             
-            // Avoid duplicate
-            while (second.id === first.id) {
+            // Avoid close match-ups
+            while (Math.abs(first.popularity - second.popularity < minPopDiff)) {
                 second = this.pickRandomFromPool()
+                // Avoid duplicates
+                while (first.id === second.id) second = this.pickRandomFromPool
+                attempts++
+                if (attempts >= maxAttempts) break
             }
             
             this.animePair = [first, second]
