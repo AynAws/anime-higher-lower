@@ -42,7 +42,7 @@ window.app = Vue.createApp({
                 }
             `
             try {
-                const pagesToFetch = this.sampleUniquePages(25,5)
+                const pagesToFetch = this.sampleUniquePages(10, 50)
                 const results = await Promise.all(pagesToFetch.map(page =>
                     fetch('https://graphql.anilist.co', {
                         method: 'POST',
